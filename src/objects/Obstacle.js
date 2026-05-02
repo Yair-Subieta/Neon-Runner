@@ -46,8 +46,8 @@ const OBSTACLE_TYPES = [
       g.fillStyle(this.color, 1)
       g.fillRect(-w / 2, -h, w, h)
       g.lineStyle(2, this.accentColor, 0.8)
-      for (let i = 1; i < 5; i++) {
-        const y = -h + (h / 5) * i
+      for (var i = 1; i < 5; i++) {
+        var y = -h + (h / 5) * i
         g.beginPath()
         g.moveTo(-w / 2, y)
         g.lineTo(w / 2, y)
@@ -65,7 +65,7 @@ const OBSTACLE_TYPES = [
     accentColor: 0xff6666,
     particleColor: 0xff4466,
     draw(g, w, h) {
-      const sw = w / 3
+      var sw = w / 3
       g.fillStyle(this.color, 1)
       g.fillTriangle(-w / 2, 0, -w / 2 + sw, -h, -w / 2 + sw * 2, 0)
       g.fillTriangle(sw, 0, sw + sw, -h, sw * 2, 0)
@@ -114,14 +114,14 @@ const OBSTACLE_TYPES = [
     accentColor: 0xffffff,
     particleColor: 0xffaa00,
     draw(g, w, h) {
-      const teeth = 8
-      const innerR = w / 2 - 6
+      var teeth = 8
+      var innerR = w / 2 - 6
       g.fillStyle(this.color, 1)
       g.beginPath()
-      for (let i = 0; i < teeth; i++) {
-        const angle = (i / teeth) * Math.PI * 2
-        const nextAngle = ((i + 0.5) / teeth) * Math.PI * 2
-        const outerR = w / 2
+      for (var i = 0; i < teeth; i++) {
+        var angle = (i / teeth) * Math.PI * 2
+        var nextAngle = ((i + 0.5) / teeth) * Math.PI * 2
+        var outerR = w / 2
         if (i === 0) {
           g.moveTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR - h / 2)
         } else {
@@ -160,7 +160,7 @@ export class Obstacle {
     this.y = y
     this.alive = true
     
-    let type = null
+    var type = null
     if (typeId) {
       for (var i = 0; i < OBSTACLE_TYPES.length; i++) {
         if (OBSTACLE_TYPES[i].id === typeId) {
@@ -184,7 +184,6 @@ export class Obstacle {
     this.width = type.width
     this.height = type.height
 
-    this.body = null
     this.body = scene.physics.add.sprite(x, y, '__DEFAULT')
     this.body.setVisible(false)
     this.body.setImmovable(true)
