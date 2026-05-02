@@ -175,12 +175,19 @@ const OBSTACLE_TYPES = [
 export class Obstacle extends Phaser.GameObjects.Container {
   constructor(scene, x, y, typeId = null) {
     super(scene, x, y)
+    this.particleEvent = null
     scene.add.existing(this)
     scene.physics.add.existing(this)
 
     const type = typeId
       ? OBSTACLE_TYPES.find(t => t.id === typeId)
       : Phaser.Utils.Array.GetRandom(OBSTACLE_TYPES)
+
+    if (!type) {
+      console.warn('Invalid obstacle type:', typeId)
+      this.destroy()
+      return
+    }
 
     this.obstacleType = type
     this.rotationAngle = 0
@@ -218,10 +225,10 @@ export class Obstacle extends Phaser.GameObjects.Container {
   }
 
   createParticles(type) {
-    this.scene.time.addEvent({
+    this.particleEvent = this.scene.time.addEvent({
       delay: 150,
       callback: () => {
-        if (!this.active) return
+        if (!this || !this.scene || !this.active) return
         const size = Phaser.Math.Between(2, 5)
         const px = this.x + Phaser.Math.Between(-type.width / 2, type.width / 2)
         const py = this.y + Phaser.Math.Between(-type.height, 0)
@@ -256,7 +263,7 @@ export class Obstacle extends Phaser.GameObjects.Container {
     const dt = delta / 1000
     this.x -= speed * dt
 
-    if (this.obstacleType.id === 'saw') {
+    if (this.obstacleType.id === 'saw' && this.mainGraphic) {
       this.mainGraphic.rotation += dt * 3
     }
 
@@ -267,10 +274,15 @@ export class Obstacle extends Phaser.GameObjects.Container {
     return true
   }
 
-  onHit() {
-    if (this.particles) {
-      this.particles.stop()
+  destroy() {
+    if (this.particleEvent) {
+      this.particleEvent.remove()
+      this.particleEvent = null
     }
+    super.destroy()
+  }
+
+  onHit() {
     this.scene.tweens.add({
       targets: this.mainGraphic,
       alpha: 0,
