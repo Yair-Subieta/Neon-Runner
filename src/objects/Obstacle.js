@@ -172,6 +172,7 @@ export class Obstacle {
     this.y = y
     this.alive = true
     this.particleEvent = null
+    this.glowTween = null
     
     var type = null
     if (typeId) {
@@ -197,25 +198,26 @@ export class Obstacle {
     this.graphics.y = y
     type.draw.call(type, this.graphics, type.width, type.height)
 
-    this.createGlow(scene, type)
+    this.createGlow(scene, type, x, y)
     this.createParticles(scene, type)
 
     scene.physics.add.existing(this.graphics)
     this.body = this.graphics.body
     this.body.setImmovable(true)
-    this.body.setAllowGravity(false)
+    this.body.allowGravity = false
     this.body.setVelocity(0, 0)
     this.body.setSize(type.width * 0.75, type.height * 0.8)
     this.body.setOffset(-type.width * 0.375, -type.height)
   }
 
-  createGlow(scene, type) {
+  createGlow(scene, type, x, y) {
     this.glow = scene.add.graphics()
+    this.glow.x = x
+    this.glow.y = y
     this.glow.fillStyle(type.color, 0.08)
     this.glow.fillEllipse(0, -type.height / 2, type.width * 2.2, type.height * 1.3)
-    this.graphics.add(this.glow)
 
-    scene.tweens.add({
+    this.glowTween = scene.tweens.add({
       targets: this.glow,
       alpha: { from: 0.5, to: 1 },
       scaleX: { from: 0.95, to: 1.05 },
@@ -231,7 +233,7 @@ export class Obstacle {
     this.particleEvent = scene.time.addEvent({
       delay: 150,
       callback: () => {
-        if (!this.alive || !scene) return
+        if (!this.alive || !scene || !this.obstacleType) return
         
         var size = Math.floor(Math.random() * 3) + 2
         var px = this.x + (Math.random() * type.width - type.width / 2)
@@ -263,6 +265,10 @@ export class Obstacle {
     this.x -= speed * dt
     this.graphics.x = this.x
     
+    if (this.glow) {
+      this.glow.x = this.x
+    }
+    
     if (this.body) {
       this.body.x = this.x
     }
@@ -285,6 +291,16 @@ export class Obstacle {
     if (this.particleEvent) {
       this.particleEvent.remove()
       this.particleEvent = null
+    }
+    
+    if (this.glowTween) {
+      this.glowTween.stop()
+      this.glowTween = null
+    }
+    
+    if (this.glow) {
+      this.glow.destroy()
+      this.glow = null
     }
     
     if (this.graphics) {
