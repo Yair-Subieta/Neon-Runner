@@ -176,28 +176,27 @@ export class Obstacle extends Phaser.GameObjects.Container {
   constructor(scene, x, y, typeId = null) {
     super(scene, x, y)
     this.particleEvent = null
-    scene.add.existing(this)
-    scene.physics.add.existing(this)
 
-    const type = typeId
-      ? OBSTACLE_TYPES.find(t => t.id === typeId)
-      : Phaser.Utils.Array.GetRandom(OBSTACLE_TYPES)
+    const typeIdToUse = typeId || Phaser.Utils.Array.GetRandom(OBSTACLE_TYPES).id
+    const type = OBSTACLE_TYPES.find(t => t.id === typeIdToUse)
 
     if (!type) {
-      console.warn('Invalid obstacle type:', typeId)
       this.destroy()
       return
     }
 
     this.obstacleType = type
-    this.rotationAngle = 0
     this.particleTimer = 0
     this.createVisual(type)
     this.setupPhysics(type)
     this.createEffects(type)
+
+    scene.add.existing(this)
+    scene.physics.add.existing(this)
   }
 
   createVisual(type) {
+    if (!type || !type.draw) return
     const g = this.scene.add.graphics()
     type.draw.call(type, g, type.width, type.height)
     this.add(g)
@@ -205,6 +204,7 @@ export class Obstacle extends Phaser.GameObjects.Container {
   }
 
   createEffects(type) {
+    if (!type) return
     const glow = this.scene.add.graphics()
     glow.fillStyle(type.color, 0.08)
     glow.fillEllipse(0, -type.height / 2, type.width * 2.2, type.height * 1.3)
@@ -225,10 +225,11 @@ export class Obstacle extends Phaser.GameObjects.Container {
   }
 
   createParticles(type) {
+    if (!type) return
     this.particleEvent = this.scene.time.addEvent({
       delay: 150,
       callback: () => {
-        if (!this || !this.scene || !this.active) return
+        if (!this || !this.scene || !this.active || !this.obstacleType) return
         const size = Phaser.Math.Between(2, 5)
         const px = this.x + Phaser.Math.Between(-type.width / 2, type.width / 2)
         const py = this.y + Phaser.Math.Between(-type.height, 0)
@@ -260,6 +261,11 @@ export class Obstacle extends Phaser.GameObjects.Container {
   }
 
   update(speed, delta) {
+    if (!this.obstacleType) {
+      this.destroy()
+      return false
+    }
+
     const dt = delta / 1000
     this.x -= speed * dt
 

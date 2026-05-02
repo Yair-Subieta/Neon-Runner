@@ -101,10 +101,12 @@ export class GameScene extends Phaser.Scene {
     let baseX = GAME_WIDTH + 60
     
     pattern.forEach((typeId) => {
+      if (!typeId) return
       const obs = new Obstacle(this, baseX, this.groundY, typeId)
+      if (!obs.obstacleType) return
       this.obstacleGroup.add(obs)
       this.obstacles.push(obs)
-      baseX += obs.obstacleType ? obs.obstacleType.width + 25 : 55
+      baseX += obs.obstacleType.width + 25
     })
 
     const minDelay = 700 - speedLevel * 30
