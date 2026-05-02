@@ -55,6 +55,8 @@ const OBSTACLE_TYPES = [
       }
       g.fillStyle(this.accentColor, 0.9)
       g.fillRect(-w / 2, -h, w, 4)
+      g.fillStyle(0xffffff, 0.5)
+      g.fillRect(-w / 2, -h + 4, w, 2)
     }
   },
   {
@@ -88,6 +90,8 @@ const OBSTACLE_TYPES = [
       g.fillTriangle(0, -h, -w / 4, 0, w / 4, 0)
       g.fillStyle(0xffffff, 0.5)
       g.fillTriangle(0, -h * 0.7, -w / 6, -h * 0.1, w / 6, -h * 0.1)
+      g.fillStyle(this.color, 0.3)
+      g.fillRect(-w, -2, w * 2, 4)
     }
   },
   {
@@ -104,6 +108,10 @@ const OBSTACLE_TYPES = [
       g.fillCircle(0, -h / 2, w / 2 - 4)
       g.lineStyle(2, this.accentColor, 0.8)
       g.strokeCircle(0, -h / 2, w / 2)
+      g.lineStyle(1, this.accentColor, 0.5)
+      g.strokeCircle(0, -h / 2, w / 2 - 5)
+      g.fillStyle(this.accentColor, 0.9)
+      g.fillRect(-w / 4, -h / 2 - 2, w / 2, 4)
     }
   },
   {
@@ -133,6 +141,8 @@ const OBSTACLE_TYPES = [
       g.fillPath()
       g.fillStyle(0x333344, 1)
       g.fillCircle(0, -h / 2, w / 4)
+      g.fillStyle(this.accentColor, 0.6)
+      g.fillCircle(0, -h / 2, w / 6)
     }
   },
   {
@@ -149,6 +159,8 @@ const OBSTACLE_TYPES = [
       g.fillTriangle(0, -h * 0.7, -w / 3, -h * 0.1, w / 3, -h * 0.1)
       g.fillStyle(0xffff00, 0.6)
       g.fillTriangle(0, -h * 0.5, -w / 5, -h * 0.1, w / 5, -h * 0.1)
+      g.fillStyle(0xffffff, 0.4)
+      g.fillTriangle(0, -h * 0.4, -w / 8, -h * 0.15, w / 8, -h * 0.15)
     }
   }
 ]
@@ -175,14 +187,17 @@ export class Obstacle {
     }
 
     this.obstacleType = type
+    this.width = type.width
+    this.height = type.height
+    this.rotationAngle = 0
+    this.glowTimer = 0
 
     this.graphics = scene.add.graphics()
     this.graphics.x = x
     this.graphics.y = y
     type.draw.call(type, this.graphics, type.width, type.height)
 
-    this.width = type.width
-    this.height = type.height
+    this.createGlow(scene, type)
 
     scene.physics.add.existing(this.graphics)
     this.body = this.graphics.body
@@ -191,8 +206,24 @@ export class Obstacle {
     this.body.setVelocity(0, 0)
     this.body.setSize(type.width * 0.75, type.height * 0.8)
     this.body.setOffset(-type.width * 0.375, -type.height)
+  }
 
-    this.rotationAngle = 0
+  createGlow(scene, type) {
+    this.glow = scene.add.graphics()
+    this.glow.fillStyle(type.color, 0.08)
+    this.glow.fillEllipse(0, -type.height / 2, type.width * 2.2, type.height * 1.3)
+    this.graphics.add(this.glow)
+
+    scene.tweens.add({
+      targets: this.glow,
+      alpha: { from: 0.5, to: 1 },
+      scaleX: { from: 0.95, to: 1.05 },
+      scaleY: { from: 0.95, to: 1.05 },
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    })
   }
 
   update(speed, delta) {
@@ -226,8 +257,6 @@ export class Obstacle {
     }
   }
 }
-
-export const OBSTACLE_POOL = OBSTACLE_TYPES
 
 export function getRandomObstacleType() {
   return OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)]
