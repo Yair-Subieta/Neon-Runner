@@ -187,12 +187,14 @@ export class Obstacle extends Phaser.GameObjects.Container {
 
     this.obstacleType = type
     this.particleTimer = 0
+
+    // Importante: agregar a la escena ANTES de setupPhysics porque necesita el body
+    scene.add.existing(this)
+    scene.physics.add.existing(this)
+
     this.createVisual(type)
     this.setupPhysics(type)
     this.createEffects(type)
-
-    scene.add.existing(this)
-    scene.physics.add.existing(this)
   }
 
   createVisual(type) {
