@@ -184,8 +184,8 @@ export class Obstacle {
     this.width = type.width
     this.height = type.height
 
-    this.body = scene.physics.add.sprite(x, y, '__DEFAULT')
-    this.body.setVisible(false)
+    scene.physics.add.existing(this.graphics)
+    this.body = this.graphics.body
     this.body.setImmovable(true)
     this.body.setAllowGravity(false)
     this.body.setVelocity(0, 0)
@@ -223,10 +223,6 @@ export class Obstacle {
     if (this.graphics) {
       this.graphics.destroy()
       this.graphics = null
-    }
-    if (this.body) {
-      this.body.destroy()
-      this.body = null
     }
   }
 }

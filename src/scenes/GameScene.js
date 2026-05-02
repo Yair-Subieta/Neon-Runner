@@ -107,9 +107,7 @@ export class GameScene extends Phaser.Scene {
       
       if (!obs || !obs.obstacleType) return
       
-      if (obs.body) {
-        this.obstacleGroup.add(obs.body)
-      }
+      this.obstacleGroup.add(obs.graphics)
       
       this.obstacles.push(obs)
       baseX += obs.width + 30
@@ -230,11 +228,7 @@ export class GameScene extends Phaser.Scene {
       
       const alive = obs.update(this.worldSpeed, delta)
       if (!alive) {
-        try {
-          if (obs.body) {
-            this.obstacleGroup.remove(obs.body)
-          }
-        } catch (e) {}
+        this.obstacleGroup.remove(obs.graphics)
         this.survived++
         if (this.survived % 3 === 0) {
           new ScoreEffect(this, this.player.x + 50, this.player.y - 40, this.survived * 5)
