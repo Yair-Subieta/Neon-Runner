@@ -171,6 +171,7 @@ export class Obstacle {
     this.x = x
     this.y = y
     this.alive = true
+    this.particleEvent = null
     
     var type = null
     if (typeId) {
@@ -190,7 +191,6 @@ export class Obstacle {
     this.width = type.width
     this.height = type.height
     this.rotationAngle = 0
-    this.glowTimer = 0
 
     this.graphics = scene.add.graphics()
     this.graphics.x = x
@@ -198,6 +198,7 @@ export class Obstacle {
     type.draw.call(type, this.graphics, type.width, type.height)
 
     this.createGlow(scene, type)
+    this.createParticles(scene, type)
 
     scene.physics.add.existing(this.graphics)
     this.body = this.graphics.body
@@ -226,6 +227,35 @@ export class Obstacle {
     })
   }
 
+  createParticles(scene, type) {
+    this.particleEvent = scene.time.addEvent({
+      delay: 150,
+      callback: () => {
+        if (!this.alive || !scene) return
+        
+        var size = Math.floor(Math.random() * 3) + 2
+        var px = this.x + (Math.random() * type.width - type.width / 2)
+        var py = this.y + (Math.random() * -type.height)
+        var p = scene.add.circle(px, py, size, type.particleColor, 0.8)
+
+        scene.tweens.add({
+          targets: p,
+          y: py - 30 - Math.random() * 30,
+          x: px + (Math.random() * 40 - 20),
+          alpha: 0,
+          scaleX: 0.2,
+          scaleY: 0.2,
+          duration: 400,
+          ease: 'Power2',
+          onComplete: () => {
+            if (p && p.destroy) p.destroy()
+          }
+        })
+      },
+      loop: true
+    })
+  }
+
   update(speed, delta) {
     if (!this.alive) return false
     
@@ -251,6 +281,12 @@ export class Obstacle {
 
   destroy() {
     this.alive = false
+    
+    if (this.particleEvent) {
+      this.particleEvent.remove()
+      this.particleEvent = null
+    }
+    
     if (this.graphics) {
       this.graphics.destroy()
       this.graphics = null
