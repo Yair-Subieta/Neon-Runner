@@ -78,42 +78,56 @@ export class Background {
   }
 
   createCityLayers() {
-    // Capa 1: edificios lejanos (mueven lento)
-    this.cityFar = this.createCityStrip(0x111122, 0.6, 8, 20, 40, 80)
-    // Capa 2: edificios medios
-    this.cityMid = this.createCityStrip(0x0d1520, 0.75, 6, 30, 50, 100)
-    // Línea de horizonte
+    this.cityFar = this.createCityStrip(0x111122, 0.6, 8, 20, 40, 80, 0.15)
+    this.cityMid = this.createCityStrip(0x0d1520, 0.75, 6, 30, 50, 100, 0.3)
     this.scene.add.rectangle(
       this.width / 2, this.height * 0.78,
       this.width, 1.5, 0x00ffcc, 0.4
     )
   }
 
-  createCityStrip(color, yRatio, count, minW, maxW, maxH) {
-    const graphics = this.scene.add.graphics()
-    const buildings = []
-    let x = 0
+  createCityStrip(color, yRatio, count, minW, maxW, maxH, speedFactor) {
+    const stripWidth = this.width * 2.5
+    const g1 = this.scene.add.graphics()
+    const g2 = this.scene.add.graphics()
+    const groundY = this.height * 0.78
+    const buildingsY = groundY * yRatio
+    const buildings1 = this.generateBuildings(stripWidth, buildingsY, minW, maxW, maxH)
+    const buildings2 = this.generateBuildings(stripWidth, buildingsY, minW, maxW, maxH)
 
-    while (x < this.width * 2.5) {
-      const w = Phaser.Math.Between(minW, maxW)
-      const h = Phaser.Math.Between(30, maxH)
-      const bY = this.height * yRatio
-      buildings.push({ x, y: bY - h, w, h })
-      x += w + Phaser.Math.Between(2, 10)
+    this.drawBuildings(g1, buildings1, color)
+    this.drawBuildings(g2, buildings2, color)
+
+    g2.setX(stripWidth)
+
+    return {
+      g1, g2,
+      buildings1, buildings2,
+      color, groundY,
+      stripWidth,
+      speedFactor,
+      offset: 0
     }
-
-    this.drawBuildings(graphics, buildings, color, yRatio)
-
-    return { graphics, buildings, color, yRatio, offset: 0 }
   }
 
-  drawBuildings(graphics, buildings, color, yRatio) {
+  generateBuildings(stripWidth, buildingsY, minW, maxW, maxH) {
+    const buildings = []
+    let x = 0
+    while (x < stripWidth) {
+      const w = Phaser.Math.Between(minW, maxW)
+      const h = Phaser.Math.Between(30, maxH)
+      buildings.push({ x, y: buildingsY - h, w, h })
+      x += w + Phaser.Math.Between(2, 10)
+    }
+    return buildings
+  }
+
+  drawBuildings(graphics, buildings, color) {
     graphics.clear()
     buildings.forEach(b => {
       graphics.fillStyle(color, 1)
       graphics.fillRect(b.x, b.y, b.w, b.h)
 
-      // Ventanas
       if (b.w > 25) {
         const cols = Math.floor(b.w / 12)
         const rows = Math.floor(b.h / 12)
@@ -129,25 +143,25 @@ export class Background {
     })
   }
 
+  updateCityStrip(strip, speed, dt) {
+    const moveAmount = speed * strip.speedFactor * dt
+    strip.offset += moveAmount
+
+    if (strip.offset >= strip.stripWidth) {
+      strip.offset -= strip.stripWidth
+    }
+
+    strip.g1.setX(-strip.offset)
+    strip.g2.setX(strip.stripWidth - strip.offset)
+  }
+
   update(speed, delta) {
     const dt = delta / 1000
 
-    // Mover grid
     this.gridOffset = (this.gridOffset + dt * 0.4) % 1
     this.drawGrid()
 
-    // Mover edificios lejanos (parallax lento)
-    this.cityFar.offset += speed * 0.15 * dt
-    if (this.cityFar.offset > 200) {
-      this.cityFar.offset = 0
-    }
-    this.cityFar.graphics.setX(-this.cityFar.offset)
-
-    // Mover edificios medios
-    this.cityMid.offset += speed * 0.3 * dt
-    if (this.cityMid.offset > 200) {
-      this.cityMid.offset = 0
-    }
-    this.cityMid.graphics.setX(-this.cityMid.offset)
+    this.updateCityStrip(this.cityFar, speed, dt)
+    this.updateCityStrip(this.cityMid, speed, dt)
   }
 }

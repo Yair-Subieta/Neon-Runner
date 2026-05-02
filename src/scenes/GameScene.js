@@ -95,16 +95,46 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnObstacle() {
-    const obs = new Obstacle(this, GAME_WIDTH + 60, this.groundY)
-    this.obstacleGroup.add(obs)
-    this.obstacles.push(obs)
+    const speedLevel = Math.floor((this.worldSpeed - WORLD_SPEED) / 60)
+    const pattern = this.chooseSpawnPattern(speedLevel)
+    
+    let baseX = GAME_WIDTH + 60
+    
+    pattern.forEach((typeId, i) => {
+      const gap = typeId === 'gap' ? 45 : typeId === 'close' ? 35 : 55
+      const obs = new Obstacle(this, baseX, this.groundY, typeId)
+      this.obstacleGroup.add(obs)
+      this.obstacles.push(obs)
+      baseX += gap
+    })
 
-    const minDelay = 850
+    const minDelay = 700 - speedLevel * 30
     const baseDelay = 1800
     this.nextObstacleDelay = Math.max(
-      minDelay,
+      Math.max(minDelay, 400),
       baseDelay - (this.worldSpeed - WORLD_SPEED) * 1.5
     )
+  }
+
+  chooseSpawnPattern(speedLevel) {
+    const types = ['spike', 'block', 'tall', 'crystal', 'barrel']
+    const rare = ['double', 'saw', 'flame']
+    
+    const roll = Math.random()
+    const difficultyBoost = Math.min(speedLevel * 0.15, 0.6)
+    
+    if (roll < 0.15 + difficultyBoost * 0.1 && speedLevel >= 2) {
+      const rareType = Phaser.Utils.Array.GetRandom(rare)
+      return [rareType]
+    }
+    
+    if (roll < 0.3 + difficultyBoost * 0.2 && speedLevel >= 1) {
+      const t1 = Phaser.Utils.Array.GetRandom(types)
+      const t2 = t1 === 'crystal' ? 'spike' : t1
+      return Math.random() < 0.5 ? [t1, 'gap', t2] : [t1, 'close', t2]
+    }
+    
+    return [Phaser.Utils.Array.GetRandom(types)]
   }
 
   onHitObstacle() {
