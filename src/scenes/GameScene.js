@@ -101,19 +101,18 @@ export class GameScene extends Phaser.Scene {
     let baseX = GAME_WIDTH + 60
     
     pattern.forEach((typeId) => {
-      if (!typeId) {
-        return
-      }
+      if (!typeId) return
       
       const obs = new Obstacle(this, baseX, this.groundY, typeId)
       
-      if (!obs || !obs.obstacleType || !obs.body) {
-        return
+      if (!obs || !obs.obstacleType) return
+      
+      if (obs.body) {
+        this.obstacleGroup.add(obs.body)
       }
       
-      this.obstacleGroup.add(obs.body)
       this.obstacles.push(obs)
-      baseX += obs.obstacleType.width + 30
+      baseX += obs.width + 30
     })
 
     const minDelay = 700 - speedLevel * 30
@@ -231,9 +230,11 @@ export class GameScene extends Phaser.Scene {
       
       const alive = obs.update(this.worldSpeed, delta)
       if (!alive) {
-        if (obs.body) {
-          this.obstacleGroup.remove(obs.body)
-        }
+        try {
+          if (obs.body) {
+            this.obstacleGroup.remove(obs.body)
+          }
+        } catch (e) {}
         this.survived++
         if (this.survived % 3 === 0) {
           new ScoreEffect(this, this.player.x + 50, this.player.y - 40, this.survived * 5)
