@@ -7,7 +7,6 @@ const OBSTACLE_TYPES = [
     height: 34,
     color: 0xff2244,
     accentColor: 0xff6666,
-    particleColor: 0xff4466,
     draw(g, w, h) {
       g.fillStyle(this.color, 1)
       g.fillTriangle(-w / 2, 0, 0, -h, w / 2, 0)
@@ -23,7 +22,6 @@ const OBSTACLE_TYPES = [
     height: 36,
     color: 0xff4400,
     accentColor: 0xff8844,
-    particleColor: 0xff6600,
     draw(g, w, h) {
       g.fillStyle(this.color, 1)
       g.fillRect(-w / 2, -h, w, h)
@@ -41,7 +39,6 @@ const OBSTACLE_TYPES = [
     height: 60,
     color: 0xaa00ff,
     accentColor: 0xdd44ff,
-    particleColor: 0xcc44ff,
     draw(g, w, h) {
       g.fillStyle(this.color, 1)
       g.fillRect(-w / 2, -h, w, h)
@@ -65,7 +62,6 @@ const OBSTACLE_TYPES = [
     height: 32,
     color: 0xff2244,
     accentColor: 0xff6666,
-    particleColor: 0xff4466,
     draw(g, w, h) {
       var sw = w / 3
       g.fillStyle(this.color, 1)
@@ -82,7 +78,6 @@ const OBSTACLE_TYPES = [
     height: 44,
     color: 0x00ffcc,
     accentColor: 0x66ffdd,
-    particleColor: 0x00ffcc,
     draw(g, w, h) {
       g.fillStyle(this.color, 1)
       g.fillTriangle(0, -h, -w / 2, 0, w / 2, 0)
@@ -90,8 +85,6 @@ const OBSTACLE_TYPES = [
       g.fillTriangle(0, -h, -w / 4, 0, w / 4, 0)
       g.fillStyle(0xffffff, 0.5)
       g.fillTriangle(0, -h * 0.7, -w / 6, -h * 0.1, w / 6, -h * 0.1)
-      g.fillStyle(this.color, 0.3)
-      g.fillRect(-w, -2, w * 2, 4)
     }
   },
   {
@@ -100,7 +93,6 @@ const OBSTACLE_TYPES = [
     height: 30,
     color: 0xff8800,
     accentColor: 0xffaa44,
-    particleColor: 0xff6600,
     draw(g, w, h) {
       g.fillStyle(this.color, 1)
       g.fillCircle(0, -h / 2, w / 2)
@@ -108,10 +100,6 @@ const OBSTACLE_TYPES = [
       g.fillCircle(0, -h / 2, w / 2 - 4)
       g.lineStyle(2, this.accentColor, 0.8)
       g.strokeCircle(0, -h / 2, w / 2)
-      g.lineStyle(1, this.accentColor, 0.5)
-      g.strokeCircle(0, -h / 2, w / 2 - 5)
-      g.fillStyle(this.accentColor, 0.9)
-      g.fillRect(-w / 4, -h / 2 - 2, w / 2, 4)
     }
   },
   {
@@ -120,7 +108,6 @@ const OBSTACLE_TYPES = [
     height: 40,
     color: 0x888899,
     accentColor: 0xffffff,
-    particleColor: 0xffaa00,
     draw(g, w, h) {
       var teeth = 8
       var innerR = w / 2 - 6
@@ -141,8 +128,6 @@ const OBSTACLE_TYPES = [
       g.fillPath()
       g.fillStyle(0x333344, 1)
       g.fillCircle(0, -h / 2, w / 4)
-      g.fillStyle(this.accentColor, 0.6)
-      g.fillCircle(0, -h / 2, w / 6)
     }
   },
   {
@@ -151,7 +136,6 @@ const OBSTACLE_TYPES = [
     height: 48,
     color: 0xff4400,
     accentColor: 0xffaa00,
-    particleColor: 0xff6600,
     draw(g, w, h) {
       g.fillStyle(this.color, 0.9)
       g.fillTriangle(0, -h, -w / 2, 0, w / 2, 0)
@@ -159,8 +143,6 @@ const OBSTACLE_TYPES = [
       g.fillTriangle(0, -h * 0.7, -w / 3, -h * 0.1, w / 3, -h * 0.1)
       g.fillStyle(0xffff00, 0.6)
       g.fillTriangle(0, -h * 0.5, -w / 5, -h * 0.1, w / 5, -h * 0.1)
-      g.fillStyle(0xffffff, 0.4)
-      g.fillTriangle(0, -h * 0.4, -w / 8, -h * 0.15, w / 8, -h * 0.15)
     }
   }
 ]
@@ -171,8 +153,7 @@ export class Obstacle {
     this.x = x
     this.y = y
     this.alive = true
-    this.particleEvent = null
-    this.glowTween = null
+    this.rotationAngle = 0
     
     var type = null
     if (typeId) {
@@ -191,15 +172,11 @@ export class Obstacle {
     this.obstacleType = type
     this.width = type.width
     this.height = type.height
-    this.rotationAngle = 0
 
     this.graphics = scene.add.graphics()
     this.graphics.x = x
     this.graphics.y = y
     type.draw.call(type, this.graphics, type.width, type.height)
-
-    this.createGlow(scene, type, x, y)
-    this.createParticles(scene, type)
 
     scene.physics.add.existing(this.graphics)
     this.body = this.graphics.body
@@ -210,64 +187,12 @@ export class Obstacle {
     this.body.setOffset(-type.width * 0.375, -type.height)
   }
 
-  createGlow(scene, type, x, y) {
-    this.glow = scene.add.graphics()
-    this.glow.x = x
-    this.glow.y = y
-    this.glow.fillStyle(type.color, 0.08)
-    this.glow.fillEllipse(0, -type.height / 2, type.width * 2.2, type.height * 1.3)
-
-    this.glowTween = scene.tweens.add({
-      targets: this.glow,
-      alpha: { from: 0.5, to: 1 },
-      scaleX: { from: 0.95, to: 1.05 },
-      scaleY: { from: 0.95, to: 1.05 },
-      duration: 400,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    })
-  }
-
-  createParticles(scene, type) {
-    this.particleEvent = scene.time.addEvent({
-      delay: 150,
-      callback: () => {
-        if (!this.alive || !scene || !this.obstacleType) return
-        
-        var size = Math.floor(Math.random() * 3) + 2
-        var px = this.x + (Math.random() * type.width - type.width / 2)
-        var py = this.y + (Math.random() * -type.height)
-        var p = scene.add.circle(px, py, size, type.particleColor, 0.8)
-
-        scene.tweens.add({
-          targets: p,
-          y: py - 30 - Math.random() * 30,
-          x: px + (Math.random() * 40 - 20),
-          alpha: 0,
-          scaleX: 0.2,
-          scaleY: 0.2,
-          duration: 400,
-          ease: 'Power2',
-          onComplete: () => {
-            if (p && p.destroy) p.destroy()
-          }
-        })
-      },
-      loop: true
-    })
-  }
-
   update(speed, delta) {
     if (!this.alive) return false
     
     var dt = delta / 1000
     this.x -= speed * dt
     this.graphics.x = this.x
-    
-    if (this.glow) {
-      this.glow.x = this.x
-    }
     
     if (this.body) {
       this.body.x = this.x
@@ -287,22 +212,6 @@ export class Obstacle {
 
   destroy() {
     this.alive = false
-    
-    if (this.particleEvent) {
-      this.particleEvent.remove()
-      this.particleEvent = null
-    }
-    
-    if (this.glowTween) {
-      this.glowTween.stop()
-      this.glowTween = null
-    }
-    
-    if (this.glow) {
-      this.glow.destroy()
-      this.glow = null
-    }
-    
     if (this.graphics) {
       this.graphics.destroy()
       this.graphics = null
