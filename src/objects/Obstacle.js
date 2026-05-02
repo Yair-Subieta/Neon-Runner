@@ -15,8 +15,7 @@ const OBSTACLE_TYPES = [
       g.fillTriangle(-w / 4, 0, 0, -h * 0.55, w / 4, 0)
       g.fillStyle(0xffffff, 0.3)
       g.fillTriangle(-w / 8, -h * 0.2, 0, -h * 0.65, w / 8, -h * 0.2)
-    },
-    getGroundY(h) { return h * 0.5 }
+    }
   },
   {
     id: 'block',
@@ -34,8 +33,7 @@ const OBSTACLE_TYPES = [
       g.strokeRect(-w / 2, -h, w, h)
       g.lineStyle(1.5, 0xffffff, 0.4)
       g.strokeRect(-w / 2 + 4, -h + 4, w - 8, h - 8)
-    },
-    getGroundY(h) { return h * 0.5 }
+    }
   },
   {
     id: 'tall',
@@ -58,8 +56,7 @@ const OBSTACLE_TYPES = [
       g.fillRect(-w / 2, -h, w, 4)
       g.fillStyle(0xffffff, 0.5)
       g.fillRect(-w / 2, -h + 4, w, 2)
-    },
-    getGroundY(h) { return h * 0.5 }
+    }
   },
   {
     id: 'double',
@@ -76,8 +73,7 @@ const OBSTACLE_TYPES = [
       g.fillStyle(this.accentColor, 0.5)
       g.fillTriangle(-w / 2 + sw, 0, -w / 2 + sw, -h * 0.6, -w / 2 + sw * 2, 0)
       g.fillTriangle(sw + sw / 2, 0, sw + sw, -h * 0.6, sw + sw * 2, 0)
-    },
-    getGroundY(h) { return h * 0.5 }
+    }
   },
   {
     id: 'crystal',
@@ -95,8 +91,7 @@ const OBSTACLE_TYPES = [
       g.fillTriangle(0, -h * 0.7, -w / 6, -h * 0.1, w / 6, -h * 0.1)
       g.fillStyle(this.color, 0.3)
       g.fillRect(-w, -2, w * 2, 4)
-    },
-    getGroundY(h) { return h * 0.3 }
+    }
   },
   {
     id: 'barrel',
@@ -116,8 +111,7 @@ const OBSTACLE_TYPES = [
       g.strokeCircle(0, -h / 2, w / 2 - 5)
       g.fillStyle(this.accentColor, 0.9)
       g.fillRect(-w / 4, -h / 2 - 2, w / 2, 4)
-    },
-    getGroundY(h) { return h * 0.5 }
+    }
   },
   {
     id: 'saw',
@@ -148,8 +142,7 @@ const OBSTACLE_TYPES = [
       g.fillCircle(0, -h / 2, w / 4)
       g.fillStyle(this.accentColor, 0.6)
       g.fillCircle(0, -h / 2, w / 6)
-    },
-    getGroundY(h) { return h * 0.5 }
+    }
   },
   {
     id: 'flame',
@@ -167,8 +160,7 @@ const OBSTACLE_TYPES = [
       g.fillTriangle(0, -h * 0.5, -w / 5, -h * 0.1, w / 5, -h * 0.1)
       g.fillStyle(0xffffff, 0.4)
       g.fillTriangle(0, -h * 0.4, -w / 8, -h * 0.15, w / 8, -h * 0.15)
-    },
-    getGroundY(h) { return h * 0.5 }
+    }
   }
 ]
 
@@ -177,137 +169,171 @@ export class Obstacle extends Phaser.GameObjects.Container {
     super(scene, x, y)
     this.particleEvent = null
 
-    const typeIdToUse = typeId || Phaser.Utils.Array.GetRandom(OBSTACLE_TYPES).id
-    const type = OBSTACLE_TYPES.find(t => t.id === typeIdToUse)
-
+    const availableTypes = OBSTACLE_TYPES
+    let type = null
+    
+    if (typeId) {
+      for (let i = 0; i < availableTypes.length; i++) {
+        if (availableTypes[i].id === typeId) {
+          type = availableTypes[i]
+          break
+        }
+      }
+    }
+    
     if (!type) {
-      this.destroy()
-      return
+      type = availableTypes[Math.floor(Math.random() * availableTypes.length)]
     }
 
     this.obstacleType = type
-    this.particleTimer = 0
-
-    // Importante: agregar a la escena ANTES de setupPhysics porque necesita el body
-    scene.add.existing(this)
-    scene.physics.add.existing(this)
+    this.rotationAngle = 0
+    this.alive = true
 
     this.createVisual(type)
-    this.setupPhysics(type)
-    this.createEffects(type)
+
+    if (this.mainGraphic) {
+      this.width = type.width
+      this.height = type.height
+      
+      this.scene.add.existing(this)
+      
+      this.body = this.scene.physics.add.sprite(x, y, '__DEFAULT')
+      this.body.setVisible(false)
+      this.body.setEnable(true)
+      this.body.setImmovable(true)
+      this.body.setAllowGravity(false)
+      this.body.setVelocity(0, 0)
+      this.body.setSize(type.width * 0.75, type.height * 0.8)
+      this.body.setOffset(-type.width * 0.375, -type.height)
+      
+      this.createEffects(type)
+    }
   }
 
   createVisual(type) {
     if (!type || !type.draw) return
+    
     const g = this.scene.add.graphics()
-    type.draw.call(type, g, type.width, type.height)
-    this.add(g)
-    this.mainGraphic = g
+    try {
+      type.draw.call(type, g, type.width, type.height)
+      this.add(g)
+      this.mainGraphic = g
+    } catch (e) {
+      console.warn('createVisual error:', e)
+    }
   }
 
   createEffects(type) {
-    if (!type) return
-    const glow = this.scene.add.graphics()
-    glow.fillStyle(type.color, 0.08)
-    glow.fillEllipse(0, -type.height / 2, type.width * 2.2, type.height * 1.3)
-    this.add(glow)
+    if (!type || !this.scene) return
+    
+    try {
+      const glow = this.scene.add.graphics()
+      glow.fillStyle(type.color, 0.08)
+      glow.fillEllipse(0, -type.height / 2, type.width * 2.2, type.height * 1.3)
+      this.add(glow)
 
-    this.scene.tweens.add({
-      targets: glow,
-      alpha: { from: 0.5, to: 1 },
-      scaleX: { from: 0.95, to: 1.05 },
-      scaleY: { from: 0.95, to: 1.05 },
-      duration: 400 + Math.random() * 200,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
-    })
+      this.scene.tweens.add({
+        targets: glow,
+        alpha: { from: 0.5, to: 1 },
+        scaleX: { from: 0.95, to: 1.05 },
+        scaleY: { from: 0.95, to: 1.05 },
+        duration: 400 + Math.random() * 200,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+      })
 
-    this.createParticles(type)
-  }
+      this.particleEvent = this.scene.time.addEvent({
+        delay: 150,
+        callback: () => {
+          if (!this.alive || !this.scene || !this.obstacleType) return
+          try {
+            const size = Math.floor(Math.random() * 3) + 2
+            const px = this.x + (Math.random() * type.width - type.width / 2)
+            const py = this.y + (Math.random() * -type.height)
+            const p = this.scene.add.circle(px, py, size, type.particleColor, 0.8)
 
-  createParticles(type) {
-    if (!type) return
-    this.particleEvent = this.scene.time.addEvent({
-      delay: 150,
-      callback: () => {
-        if (!this || !this.scene || !this.active || !this.obstacleType) return
-        const size = Phaser.Math.Between(2, 5)
-        const px = this.x + Phaser.Math.Between(-type.width / 2, type.width / 2)
-        const py = this.y + Phaser.Math.Between(-type.height, 0)
-        const p = this.scene.add.circle(px, py, size, type.particleColor, 0.8)
-
-        this.scene.tweens.add({
-          targets: p,
-          y: py - Phaser.Math.Between(30, 60),
-          x: px + Phaser.Math.Between(-20, 20),
-          alpha: 0,
-          scaleX: 0.2,
-          scaleY: 0.2,
-          duration: 400,
-          ease: 'Power2',
-          onComplete: () => p.destroy()
-        })
-      },
-      loop: true
-    })
-  }
-
-  setupPhysics(type) {
-    const body = this.body
-    body.setSize(type.width * 0.75, type.height * 0.8)
-    body.setOffset(-type.width * 0.375, -type.height)
-    body.setImmovable(true)
-    body.setAllowGravity(false)
-    body.setVelocity(0, 0)
+            this.scene.tweens.add({
+              targets: p,
+              y: py - 30 - Math.random() * 30,
+              x: px + (Math.random() * 40 - 20),
+              alpha: 0,
+              scaleX: 0.2,
+              scaleY: 0.2,
+              duration: 400,
+              ease: 'Power2',
+              onComplete: () => {
+                if (p && p.destroy) p.destroy()
+              }
+            })
+          } catch (e) {}
+        },
+        loop: true
+      })
+    } catch (e) {
+      console.warn('createEffects error:', e)
+    }
   }
 
   update(speed, delta) {
-    if (!this.obstacleType) {
-      this.destroy()
-      return false
-    }
+    if (!this.alive) return false
+    
+    try {
+      const dt = delta / 1000
+      this.x -= speed * dt
 
-    const dt = delta / 1000
-    this.x -= speed * dt
+      if (this.body) {
+        this.body.x = this.x
+      }
 
-    if (this.obstacleType.id === 'saw' && this.mainGraphic) {
-      this.mainGraphic.rotation += dt * 3
-    }
+      if (this.obstacleType && this.obstacleType.id === 'saw' && this.mainGraphic) {
+        this.mainGraphic.rotation += dt * 3
+      }
 
-    if (this.x < -100) {
-      this.destroy()
-      return false
-    }
+      if (this.x < -100) {
+        this.destroy()
+        return false
+      }
+    } catch (e) {}
+    
     return true
   }
 
   destroy() {
+    this.alive = false
+    
     if (this.particleEvent) {
-      this.particleEvent.remove()
+      try {
+        this.particleEvent.remove()
+      } catch (e) {}
       this.particleEvent = null
     }
-    super.destroy()
-  }
-
-  onHit() {
-    this.scene.tweens.add({
-      targets: this.mainGraphic,
-      alpha: 0,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      duration: 150,
-      yoyo: true
-    })
+    
+    if (this.body) {
+      try {
+        this.body.destroy()
+      } catch (e) {}
+      this.body = null
+    }
+    
+    try {
+      super.destroy()
+    } catch (e) {}
   }
 }
 
 export const OBSTACLE_POOL = OBSTACLE_TYPES
 
 export function getRandomObstacleType() {
-  return Phaser.Utils.Array.GetRandom(OBSTACLE_TYPES)
+  const idx = Math.floor(Math.random() * OBSTACLE_TYPES.length)
+  return OBSTACLE_TYPES[idx]
 }
 
 export function getObstacleById(id) {
-  return OBSTACLE_TYPES.find(t => t.id === id)
+  for (let i = 0; i < OBSTACLE_TYPES.length; i++) {
+    if (OBSTACLE_TYPES[i].id === id) {
+      return OBSTACLE_TYPES[i]
+    }
+  }
+  return null
 }
