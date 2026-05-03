@@ -28,6 +28,10 @@ export class GameScene extends Phaser.Scene {
     this.groundY = Math.floor(H * 0.78)
     this.speedLineTimer = 0
 
+    // Estado de oleadas
+    this.wavePhase = 'ramp'  // 'ramp' | 'rest'
+    this.waveTimer = 0
+
     // Sistemas
     this.sound = new SoundEngine()
     this.particles = new ParticleSystem(this)
@@ -51,13 +55,53 @@ export class GameScene extends Phaser.Scene {
     // Sonido ambiente
     this.sound.startAmbient()
 
-    // Velocidad creciente
+    // Velocidad creciente con oleadas
     this.time.addEvent({
       delay: 5000,
       callback: () => {
-        if (!this.isGameOver) {
+        if (this.isGameOver) return
+
+        this.waveTimer += 5000
+
+        if (this.wavePhase === 'ramp') {
           this.worldSpeed += SPEED_INCREMENT
+
+          // Cada 30 segundos, momento de respiro de 8 segundos
+          if (this.waveTimer >= 30000) {
+            this.waveTimer = 0
+            this.wavePhase = 'rest'
+            this.nextObstacleDelay = 3000
+
+            // Aviso visual al jugador
+            const txt = this.add.text(
+              GAME_WIDTH / 2, GAME_HEIGHT / 2 - 60,
+              '✦ RESPIRO ✦',
+              {
+                fontSize: '22px',
+                fill: '#00ffcc',
+                fontFamily: 'monospace',
+                stroke: '#003322',
+                strokeThickness: 4
+              }
+            ).setOrigin(0.5).setAlpha(0)
+
+            this.tweens.add({
+              targets: txt,
+              alpha: 1,
+              y: txt.y - 20,
+              duration: 400,
+              yoyo: true,
+              hold: 1200,
+              onComplete: () => txt.destroy()
+            })
+
+            // Vuelve a modo ramp tras 8 segundos
+            this.time.delayedCall(8000, () => {
+              if (!this.isGameOver) this.wavePhase = 'ramp'
+            })
+          }
         }
+        // En 'rest' no aumenta velocidad ni modifica el delay
       },
       loop: true
     })
@@ -97,52 +141,80 @@ export class GameScene extends Phaser.Scene {
   spawnObstacle() {
     const speedLevel = Math.floor((this.worldSpeed - WORLD_SPEED) / 60)
     const pattern = this.chooseSpawnPattern(speedLevel)
-    
+
     let baseX = GAME_WIDTH + 60
-    
+
     pattern.forEach((typeId) => {
       if (!typeId) return
-      
+
       const obs = new Obstacle(this, baseX, this.groundY, typeId)
-      
+
       if (!obs || !obs.obstacleType) return
-      
+
       this.obstacleGroup.add(obs.graphics)
-      
+
       this.obstacles.push(obs)
       baseX += obs.width + 30
     })
 
-    const minDelay = 700 - speedLevel * 30
-    const baseDelay = 1800
-    this.nextObstacleDelay = Math.max(
-      Math.max(minDelay, 400),
-      baseDelay - (this.worldSpeed - WORLD_SPEED) * 1.5
-    )
+    // Solo recalcula el delay si no estamos en fase de respiro
+    if (this.wavePhase !== 'rest') {
+      const minDelay = 700 - speedLevel * 30
+      const baseDelay = 1800
+      this.nextObstacleDelay = Math.max(
+        Math.max(minDelay, 400),
+        baseDelay - (this.worldSpeed - WORLD_SPEED) * 1.5
+      )
+    }
   }
 
   chooseSpawnPattern(speedLevel) {
-    const types = ['spike', 'block', 'tall', 'crystal', 'barrel']
-    const rare = ['double', 'saw', 'flame']
-    
+    const low  = ['spike', 'block', 'barrel', 'double']  // saltables con salto normal
+    const tall = ['tall', 'crystal', 'flame']             // requieren salto alto o doble
+    const rare = ['saw']                                   // especiales
+
     const roll = Math.random()
-    const difficultyBoost = Math.min(speedLevel * 0.15, 0.6)
-    
-    if (roll < 0.1 + difficultyBoost * 0.1 && speedLevel >= 2) {
+
+    // Nivel 0: solo obstáculos simples para aprender
+    if (speedLevel === 0) {
+      return [Phaser.Utils.Array.GetRandom(low)]
+    }
+
+    // Nivel 2+: aparece la sierra
+    if (speedLevel >= 2 && roll < 0.08) {
       return [Phaser.Utils.Array.GetRandom(rare)]
     }
-    
-    if (roll < 0.25 + difficultyBoost * 0.15 && speedLevel >= 1) {
-      const count = Math.random() < 0.4 ? 2 : 1
-      if (count === 2) {
-        return [
-          Phaser.Utils.Array.GetRandom(types),
-          Phaser.Utils.Array.GetRandom(types)
-        ]
-      }
+
+    // Patrón BAJO + ALTO: el jugador debe decidir si saltar o usar doble salto
+    if (speedLevel >= 2 && roll < 0.25) {
+      return [
+        Phaser.Utils.Array.GetRandom(low),
+        Phaser.Utils.Array.GetRandom(tall)
+      ]
     }
-    
-    return [Phaser.Utils.Array.GetRandom(types)]
+
+    // Patrón doble del mismo tipo (nivel 3+)
+    if (speedLevel >= 3 && roll < 0.40) {
+      const type = Phaser.Utils.Array.GetRandom(low)
+      return [type, type]
+    }
+
+    // Patrón triple muy apretado (nivel 5+, poco frecuente)
+    if (speedLevel >= 5 && roll < 0.15) {
+      return [
+        Phaser.Utils.Array.GetRandom(low),
+        Phaser.Utils.Array.GetRandom(low),
+        Phaser.Utils.Array.GetRandom(tall)
+      ]
+    }
+
+    // Obstáculo alto solo
+    if (roll < 0.35) {
+      return [Phaser.Utils.Array.GetRandom(tall)]
+    }
+
+    // Obstáculo bajo solo (default)
+    return [Phaser.Utils.Array.GetRandom(low)]
   }
 
   onHitObstacle() {
@@ -159,7 +231,6 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.shake(350, 0.015)
     this.cameras.main.flash(200, 255, 0, 0, false)
 
-    // Partículas de impacto en el obstáculo
     this.particles.explosion(this.player.x, this.player.y - 30, 0xff2244, 20)
     this.particles.explosion(this.player.x, this.player.y - 30, 0x00ffcc, 10)
 
@@ -225,7 +296,7 @@ export class GameScene extends Phaser.Scene {
     // Mover y limpiar obstáculos
     this.obstacles = this.obstacles.filter(obs => {
       if (!obs || !obs.alive) return false
-      
+
       const alive = obs.update(this.worldSpeed, delta)
       if (!alive) {
         this.obstacleGroup.remove(obs.graphics)

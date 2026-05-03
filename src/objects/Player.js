@@ -96,14 +96,37 @@ export class Player extends Phaser.GameObjects.Container {
   }
 
   jump() {
-    if (!this.isAlive) return
-    if (this.jumpCount < this.maxJumps) {
-      const isDouble = this.jumpCount === 1
-      this.body.setVelocityY(-620)
-      this.jumpCount++
+  if (!this.isAlive) return
+  if (this.jumpCount < this.maxJumps) {
+    const isDouble = this.jumpCount === 1
+    this.body.setVelocityY(isDouble ? -680 : -620)  // doble salto un poco más fuerte
+    this.jumpCount++
 
-      if (this.sound) this.sound.jump(isDouble)
+    if (this.sound) this.sound.jump(isDouble)
 
+    if (isDouble) {
+      // Doble salto: destello cian + escala más dramática
+      this.scene.tweens.add({
+        targets: this,
+        scaleX: 0.7,
+        scaleY: 1.3,
+        duration: 90,
+        yoyo: true,
+        ease: 'Power3'
+      })
+      // Flash blanco rápido sobre el personaje
+      const flash = this.scene.add.rectangle(this.x, this.y - 30, 34, 60, 0x00ffcc, 0.6)
+      this.scene.tweens.add({
+        targets: flash,
+        alpha: 0,
+        scaleX: 2,
+        scaleY: 2,
+        duration: 200,
+        ease: 'Power2',
+        onComplete: () => flash.destroy()
+      })
+    } else {
+      // Salto normal
       this.scene.tweens.add({
         targets: this,
         scaleX: 0.85,
@@ -112,31 +135,33 @@ export class Player extends Phaser.GameObjects.Container {
         yoyo: true,
         ease: 'Power2'
       })
-
-      this.spawnJumpParticles()
     }
+
+    this.spawnJumpParticles(isDouble)
+  }
   }
 
-  spawnJumpParticles() {
-    if (!this.particles) return
-    for (let i = 0; i < 8; i++) {
-      const px = this.x + Phaser.Math.Between(-10, 10)
-      const py = this.y
-      const p = this.scene.add.rectangle(px, py, 3, 3, 0x00ffcc, 0.8)
-      this.scene.tweens.add({
-        targets: p,
-        x: px + Phaser.Math.Between(-30, 30),
-        y: py + Phaser.Math.Between(10, 35),
-        alpha: 0,
-        scaleX: 0,
-        scaleY: 0,
-        duration: Phaser.Math.Between(250, 450),
-        ease: 'Power2',
-        onComplete: () => p.destroy()
-      })
-    }
+  spawnJumpParticles(isDouble) {
+  if (!this.particles) return
+  const count = isDouble ? 16 : 8
+  const color = isDouble ? 0xffffff : 0x00ffcc
+  for (let i = 0; i < count; i++) {
+    const px = this.x + Phaser.Math.Between(-12, 12)
+    const py = this.y
+    const p = this.scene.add.rectangle(px, py, isDouble ? 4 : 3, isDouble ? 4 : 3, color, 0.9)
+    this.scene.tweens.add({
+      targets: p,
+      x: px + Phaser.Math.Between(-45, 45),
+      y: py + Phaser.Math.Between(15, 45),
+      alpha: 0,
+      scaleX: 0,
+      scaleY: 0,
+      duration: Phaser.Math.Between(250, 500),
+      ease: 'Power2',
+      onComplete: () => p.destroy()
+    })
   }
-
+  }
   die() {
     if (!this.isAlive) return
     this.isAlive = false
