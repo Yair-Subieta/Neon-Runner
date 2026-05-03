@@ -247,7 +247,9 @@ export class GameScene extends Phaser.Scene {
       this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.start('GameOverScene', {
           score: this.score,
-          bestScore: this.bestScore
+          bestScore: this.bestScore,
+          survived: this.survived,
+          maxSpeed: this.worldSpeed
         })
       })
     })
