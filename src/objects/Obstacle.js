@@ -8,6 +8,7 @@ const OBSTACLE_TYPES = [
     color: 0xff2244,
     accentColor: 0xff6666,
     draw(g, w, h) {
+      // base en y=0, punta hacia arriba (y negativo)
       g.fillStyle(this.color, 1)
       g.fillTriangle(-w / 2, 0, 0, -h, w / 2, 0)
       g.fillStyle(this.accentColor, 0.6)
@@ -63,13 +64,14 @@ const OBSTACLE_TYPES = [
     color: 0xff2244,
     accentColor: 0xff6666,
     draw(g, w, h) {
-      var sw = w / 3
+      // Dos picos simétricos con base en y=0
+      var sw = w / 2
       g.fillStyle(this.color, 1)
-      g.fillTriangle(-w / 2, 0, -w / 2 + sw, -h, -w / 2 + sw * 2, 0)
-      g.fillTriangle(sw, 0, sw + sw, -h, sw * 2, 0)
+      g.fillTriangle(-w / 2, 0, -w / 4, -h, 0, 0)
+      g.fillTriangle(0, 0, w / 4, -h, w / 2, 0)
       g.fillStyle(this.accentColor, 0.5)
-      g.fillTriangle(-w / 2 + sw, 0, -w / 2 + sw, -h * 0.6, -w / 2 + sw * 2, 0)
-      g.fillTriangle(sw + sw / 2, 0, sw + sw, -h * 0.6, sw + sw * 2, 0)
+      g.fillTriangle(-w / 2 + sw / 4, 0, -w / 4, -h * 0.6, sw / 4, 0)
+      g.fillTriangle(sw / 4, 0, w / 4, -h * 0.6, w / 2 - sw / 4, 0)
     }
   },
   {
@@ -94,12 +96,19 @@ const OBSTACLE_TYPES = [
     color: 0xff8800,
     accentColor: 0xffaa44,
     draw(g, w, h) {
+      // Centro del círculo en y=-h/2 (sobre el suelo)
       g.fillStyle(this.color, 1)
       g.fillCircle(0, -h / 2, w / 2)
       g.fillStyle(0x222222, 0.4)
       g.fillCircle(0, -h / 2, w / 2 - 4)
       g.lineStyle(2, this.accentColor, 0.8)
       g.strokeCircle(0, -h / 2, w / 2)
+      // Líneas de barril
+      g.lineStyle(1.5, this.accentColor, 0.6)
+      g.beginPath()
+      g.moveTo(-w / 2, -h / 2)
+      g.lineTo(w / 2, -h / 2)
+      g.strokePath()
     }
   },
   {
@@ -108,26 +117,35 @@ const OBSTACLE_TYPES = [
     height: 40,
     color: 0x888899,
     accentColor: 0xffffff,
-    draw(g, w, h) {
+    // La sierra NO rota el objeto Graphics (distorsiona el hitbox).
+    // En su lugar, redibujamos con un ángulo que se actualiza.
+    draw(g, w, h, angle) {
       var teeth = 8
-      var innerR = w / 2 - 6
+      var outerR = w / 2
+      var innerR = outerR - 6
+      var cx = 0
+      var cy = -h / 2
+      var rot = angle || 0
+
       g.fillStyle(this.color, 1)
       g.beginPath()
       for (var i = 0; i < teeth; i++) {
-        var angle = (i / teeth) * Math.PI * 2
-        var nextAngle = ((i + 0.5) / teeth) * Math.PI * 2
-        var outerR = w / 2
-        if (i === 0) {
-          g.moveTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR - h / 2)
-        } else {
-          g.lineTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR - h / 2)
-        }
-        g.lineTo(Math.cos(nextAngle) * innerR, Math.sin(nextAngle) * innerR - h / 2)
+        var a1 = rot + (i / teeth) * Math.PI * 2
+        var a2 = rot + ((i + 0.5) / teeth) * Math.PI * 2
+        var px = cx + Math.cos(a1) * outerR
+        var py = cy + Math.sin(a1) * outerR
+        var qx = cx + Math.cos(a2) * innerR
+        var qy = cy + Math.sin(a2) * innerR
+        if (i === 0) g.moveTo(px, py)
+        else g.lineTo(px, py)
+        g.lineTo(qx, qy)
       }
       g.closePath()
       g.fillPath()
       g.fillStyle(0x333344, 1)
-      g.fillCircle(0, -h / 2, w / 4)
+      g.fillCircle(cx, cy, w / 4)
+      g.lineStyle(1.5, this.accentColor, 0.5)
+      g.strokeCircle(cx, cy, w / 4)
     }
   },
   {
@@ -154,7 +172,7 @@ export class Obstacle {
     this.y = y
     this.alive = true
     this.rotationAngle = 0
-    
+
     var type = null
     if (typeId) {
       for (var i = 0; i < OBSTACLE_TYPES.length; i++) {
@@ -164,7 +182,7 @@ export class Obstacle {
         }
       }
     }
-    
+
     if (!type) {
       type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)]
     }
@@ -176,7 +194,8 @@ export class Obstacle {
     this.graphics = scene.add.graphics()
     this.graphics.x = x
     this.graphics.y = y
-    type.draw.call(type, this.graphics, type.width, type.height)
+    // Pasar angle=0 para la sierra en el primer draw
+    type.draw.call(type, this.graphics, type.width, type.height, 0)
 
     scene.physics.add.existing(this.graphics)
     this.body = this.graphics.body
@@ -189,18 +208,26 @@ export class Obstacle {
 
   update(speed, delta) {
     if (!this.alive) return false
-    
+
     var dt = delta / 1000
     this.x -= speed * dt
     this.graphics.x = this.x
-    
+
     if (this.body) {
-      this.body.x = this.x
+      this.body.x = this.x + this.body.offset.x
     }
 
+    // La sierra se redibuja con el ángulo actualizado (sin rotar el objeto)
     if (this.obstacleType && this.obstacleType.id === 'saw') {
       this.rotationAngle += dt * 3
-      this.graphics.rotation = this.rotationAngle
+      this.graphics.clear()
+      this.obstacleType.draw.call(
+        this.obstacleType,
+        this.graphics,
+        this.obstacleType.width,
+        this.obstacleType.height,
+        this.rotationAngle
+      )
     }
 
     if (this.x < -100) {
@@ -225,9 +252,7 @@ export function getRandomObstacleType() {
 
 export function getObstacleById(id) {
   for (var i = 0; i < OBSTACLE_TYPES.length; i++) {
-    if (OBSTACLE_TYPES[i].id === id) {
-      return OBSTACLE_TYPES[i]
-    }
+    if (OBSTACLE_TYPES[i].id === id) return OBSTACLE_TYPES[i]
   }
   return null
 }

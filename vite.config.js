@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
-export default defineConfig({
-  base: '/Neon-Runner/',   // <- el nombre exacto de tu repositorio
+export default defineConfig(({ command }) => ({
+  base: command === 'serve' ? '/' : '/Neon-Runner/',
   server: {
     port: 3000,
     open: true
@@ -10,4 +10,4 @@ export default defineConfig({
     outDir: 'dist',
     assetsInlineLimit: 0
   }
-})
+}))
